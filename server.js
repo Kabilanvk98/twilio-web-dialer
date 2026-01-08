@@ -22,11 +22,16 @@ app.get("/token", (req, res) => {
     { identity: "agent1" }
   );
 
-  token.addGrant(new VoiceGrant());
+  token.addGrant(
+    new VoiceGrant({
+      voiceUrl: "https://twilio-web-dialer-af3y.onrender.com/voice"
+    })
+  );
+
   res.json({ token: token.toJwt() });
 });
 
-/* THIS IS REQUIRED FOR CALLS */
+/* REQUIRED FOR CALLS */
 app.post("/voice", (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const to = req.body.To;
