@@ -15,6 +15,7 @@ const ACCOUNT_SID = process.env.ACCOUNT_SID;   // ACxxxxxxxx
 const API_KEY     = process.env.API_KEY;       // SKxxxxxxxx
 const API_SECRET  = process.env.API_SECRET;    // API key secret
 const CALLER_ID   = process.env.CALLER_ID;     // +1XXXXXXXXXX (your Twilio number)
+const TWIML_APP_SID = process.env.TWIML_APP_SID; // TwiML App SID
 
 console.log("SERVER STARTED – WEB DIALER");
 
@@ -37,8 +38,7 @@ app.get("/token", (req, res) => {
 
   const voiceGrant = new VoiceGrant({
     // Your deployed Render URL + /voice
-    voiceUrl: "https://twilio-web-dialer-af3y.onrender.com/voice",
-    incomingAllow: false
+    outgoingApplicationSid: TWIML_APP_SID
   });
 
   token.addGrant(voiceGrant);
