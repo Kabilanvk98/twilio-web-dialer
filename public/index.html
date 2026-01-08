@@ -8,25 +8,53 @@
 
 <h3>Web Dialer</h3>
 <input id="number" placeholder="+1XXXXXXXXXX">
-<button onclick="call()">Call</button>
-<button onclick="hangup()">Hangup</button>
+<button id="callBtn" disabled>Call</button>
+<button id="hangupBtn" disabled>Hangup</button>
 
 <script>
 let device;
+let activeCall = null;
 
+// Get token from your backend
 fetch("/token")
   .then(res => res.json())
   .then(data => {
     device = new Twilio.Device(data.token);
+
+    device.on('ready', () => {
+      document.getElementById('callBtn').disabled = false;
+    });
+
+    device.on('error', (error) => {
+      alert("Twilio error: " + error.message);
+    });
+
+    device.on('disconnect', () => {
+      activeCall = null;
+      document.getElementById('callBtn').disabled = false;
+      document.getElementById('hangupBtn').disabled = true;
+    });
+  })
+  .catch(err => {
+    alert("Error getting token: " + err);
   });
 
-function call() {
-  device.connect({ To: document.getElementById("number").value });
-}
+document.getElementById('callBtn').onclick = function () {
+  const number = document.getElementById("number").value;
 
-function hangup() {
+  // Send To as a param so /voice gets req.body.To
+  activeCall = device.connect({ params: { To: number } });
+
+  document.getElementById('callBtn').disabled = true;
+  document.getElementById('hangupBtn').disabled = false;
+};
+
+document.getElementById('hangupBtn').onclick = function () {
+  if (activeCall) {
+    activeCall.disconnect();
+  }
   device.disconnectAll();
-}
+};
 </script>
 
 </body>
