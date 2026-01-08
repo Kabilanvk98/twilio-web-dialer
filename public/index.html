@@ -3,53 +3,98 @@
 <head>
   <title>Twilio Web Dialer</title>
   <script src="https://sdk.twilio.com/js/voice/releases/2.10.0/twilio.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { padding: 8px; margin-right: 10px; }
+    button { padding: 8px 15px; margin-right: 5px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
 </head>
 <body>
 
 <h3>Web Dialer</h3>
-<input id="number" placeholder="+1XXXXXXXXXX">
-<button id="callBtn" disabled>Call</button>
-<button id="hangupBtn" disabled>Hangup</button>
+<div>
+  <input id="number" placeholder="+1XXXXXXXXXX" type="tel">
+  <button id="callBtn" disabled>Call</button>
+  <button id="hangupBtn" disabled>Hangup</button>
+</div>
+
+<p id="status">Loading...</p>
 
 <script>
 let device;
 let activeCall = null;
 
-// Get token from your backend
+// Fetch token and initialize Twilio Device
 fetch("/token")
   .then(res => res.json())
   .then(data => {
-    device = new Twilio.Device(data.token);
+    console.log("Token received:", data.token);
+    
+    // Initialize Twilio Device
+    device = new Twilio.Device(data.token, {
+      codecPreferences: ["opus", "pcmu"],
+      fakeLocalDtmf: true,
+      enableRingingState: true
+    });
 
+    // Device ready event
     device.on('ready', () => {
+      console.log("Device ready");
+      document.getElementById('status').innerText = "Ready to call";
       document.getElementById('callBtn').disabled = false;
     });
 
+    // Device error event
     device.on('error', (error) => {
-      alert("Twilio error: " + error.message);
+      console.error("Device error:", error);
+      alert("Device error: " + error.message);
     });
 
+    // Call disconnect event
     device.on('disconnect', () => {
+      console.log("Call disconnected");
       activeCall = null;
+      document.getElementById('status').innerText = "Ready to call";
       document.getElementById('callBtn').disabled = false;
       document.getElementById('hangupBtn').disabled = true;
     });
+
+    // Incoming call event (optional)
+    device.on('incoming', (call) => {
+      console.log("Incoming call from:", call.parameters.From);
+      call.accept();
+    });
   })
   .catch(err => {
+    console.error("Token fetch error:", err);
     alert("Error getting token: " + err);
+    document.getElementById('status').innerText = "Error loading device";
   });
 
+// Call button click
 document.getElementById('callBtn').onclick = function () {
   const number = document.getElementById("number").value;
+  
+  if (!number) {
+    alert("Please enter a phone number");
+    return;
+  }
 
-  // Send To as a param so /voice gets req.body.To
-  activeCall = device.connect({ params: { To: number } });
+  console.log("Starting call to:", number);
+  document.getElementById('status').innerText = "Calling " + number;
+
+  activeCall = device.connect({ 
+    params: { To: number } 
+  });
 
   document.getElementById('callBtn').disabled = true;
   document.getElementById('hangupBtn').disabled = false;
 };
 
+// Hangup button click
 document.getElementById('hangupBtn').onclick = function () {
+  console.log("Hangup clicked");
   if (activeCall) {
     activeCall.disconnect();
   }
