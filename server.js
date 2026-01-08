@@ -1,61 +1,73 @@
+// server.js
 const express = require("express");
 const twilio = require("twilio");
 
-/* CREATE APP FIRST */
 const app = express();
 
-/* MIDDLEWARE */
+// Serve your public/index.html
 app.use(express.static("public"));
+
+// Parse Twilio webhook form data
 app.use(express.urlencoded({ extended: false }));
 
-/* ENVIRONMENT VARIABLES */
-const ACCOUNT_SID = process.env.ACCOUNT_SID;
-const API_KEY = process.env.API_KEY;
-const API_SECRET = process.env.API_SECRET;
-const CALLER_ID = process.env.CALLER_ID;
+// Environment variables (set these in Render dashboard)
+const ACCOUNT_SID = process.env.ACCOUNT_SID;   // ACxxxxxxxx
+const API_KEY     = process.env.API_KEY;       // SKxxxxxxxx
+const API_SECRET  = process.env.API_SECRET;    // API key secret
+const CALLER_ID   = process.env.CALLER_ID;     // +1XXXXXXXXXX (your Twilio number)
 
-/* SIMPLE START LOG (CONFIRMS DEPLOY) */
-console.log("SERVER STARTED – FINAL VERSION");
+console.log("SERVER STARTED – WEB DIALER");
 
-/* TOKEN ENDPOINT FOR BROWSER */
+// /token -> generate Voice access token for browser
 app.get("/token", (req, res) => {
   const AccessToken = twilio.jwt.AccessToken;
-  const VoiceGrant = AccessToken.VoiceGrant;
+  const VoiceGrant  = AccessToken.VoiceGrant;
 
-  const voiceGrant = new VoiceGrant({
-    voiceUrl: "https://twilio-web-dialer-af3y.onrender.com/voice"
-  });
+  if (!ACCOUNT_SID || !API_KEY || !API_SECRET) {
+    console.error("Missing Twilio env vars");
+    return res.status(500).json({ error: "Twilio env vars not set" });
+  }
 
   const token = new AccessToken(
     ACCOUNT_SID,
     API_KEY,
     API_SECRET,
-    { identity: "agent1" }
+    { identity: "agent1" } // any string
   );
+
+  const voiceGrant = new VoiceGrant({
+    // Your deployed Render URL + /voice
+    voiceUrl: "https://twilio-web-dialer-af3y.onrender.com/voice",
+    incomingAllow: false
+  });
 
   token.addGrant(voiceGrant);
 
   res.json({ token: token.toJwt() });
 });
 
-/* VOICE WEBHOOK – THIS ACTUALLY DIALS */
+// /voice -> Twilio webhook, this actually dials the number
 app.post("/voice", (req, res) => {
-  console.log("VOICE WEBHOOK HIT", req.body);
+  console.log("VOICE WEBHOOK HIT:", req.body);
 
   const twiml = new twilio.twiml.VoiceResponse();
   const to = req.body.To;
 
-  if (to) {
+  if (!CALLER_ID) {
+    console.error("CALLER_ID not set");
+    twiml.say("Server error: caller ID not configured.");
+  } else if (to) {
     twiml.dial({ callerId: CALLER_ID }, to);
   } else {
-    twiml.say("No destination number provided");
+    twiml.say("No destination number provided.");
   }
 
   res.type("text/xml");
   res.send(twiml.toString());
 });
 
-/* START SERVER */
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server listening");
+// Start server
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log("Server listening on port " + port);
 });
